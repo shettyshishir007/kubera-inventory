@@ -4,6 +4,7 @@ import { getItems, getFolders, addItem, deleteItem, addFolder } from "../lib/dat
 import ItemModal from "../components/ItemModal";
 import FolderModal from "../components/FolderModal";
 import Scanner from "../components/Scanner";
+import { exportCSV, parseCSV } from "../lib/csv";
 
 const PLACEHOLDER = "https://images.unsplash.com/photo-1586075010923-2dd4570fb338?w=300&h=200&fit=crop";
 
@@ -76,6 +77,35 @@ export default function Items({ filteredFolderId, folderName }) {
     }
   }
 
+  function handleExport() {
+    exportCSV(filtered, folders);
+  }
+
+  function handleImport() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".csv";
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const text = await file.text();
+      try {
+        const parsed = parseCSV(text, folders);
+        if (parsed.length === 0) { alert("No valid items found in CSV."); return; }
+        let added = 0;
+        for (const item of parsed) {
+          await addItem(item);
+          added++;
+        }
+        await refresh();
+        alert(`Imported ${added} item${added !== 1 ? "s" : ""} successfully!`);
+      } catch (err) {
+        alert("Import error: " + err.message);
+      }
+    };
+    input.click();
+  }
+
   function getFolderNameById(folderId) {
     return folders.find((f) => f.id === folderId)?.name || "Unfiled";
   }
@@ -92,6 +122,14 @@ export default function Items({ filteredFolderId, folderName }) {
           <p>{filtered.length} item{filtered.length !== 1 ? "s" : ""}</p>
         </div>
         <div className="header-actions">
+          <button className="btn btn-ghost" onClick={handleExport} title="Export CSV">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export
+          </button>
+          <button className="btn btn-ghost" onClick={handleImport} title="Import CSV">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Import
+          </button>
           <button className="btn btn-ghost" onClick={() => setShowScanner(true)}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7V5a2 2 0 012-2h2"/><path d="M17 3h2a2 2 0 012 2v2"/><path d="M21 17v2a2 2 0 01-2 2h-2"/><path d="M7 21H5a2 2 0 01-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/></svg>
             Scan

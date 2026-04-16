@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getFolders } from "../lib/database";
+import { uploadImage } from "../lib/storage";
 
 const EMPTY = {
   name: "",
@@ -16,6 +17,8 @@ export default function ItemModal({ item, onSave, onClose }) {
   const [folders, setFolders] = useState([]);
   const [form, setForm] = useState(EMPTY);
   const [tagInput, setTagInput] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef(null);
 
   useEffect(() => {
     getFolders().then(setFolders).catch(() => {});
@@ -44,6 +47,19 @@ export default function ItemModal({ item, onSave, onClose }) {
       ...f,
       [name]: ["quantity", "minQuantity", "price"].includes(name) ? Number(value) : value,
     }));
+  }
+
+  async function handleFileUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const url = await uploadImage(file);
+      setForm((f) => ({ ...f, image: url }));
+    } catch (err) {
+      alert("Upload failed: " + err.message);
+    }
+    setUploading(false);
   }
 
   function handleSubmit(e) {
@@ -92,8 +108,16 @@ export default function ItemModal({ item, onSave, onClose }) {
           </div>
 
           <div className="form-group">
-            <label>Image URL (optional)</label>
+            <label>Image</label>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
+                {uploading ? "Uploading..." : "Upload Photo"}
+              </button>
+              <span style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>or paste URL below</span>
+              <input ref={fileRef} type="file" accept="image/*" onChange={handleFileUpload} style={{ display: "none" }} />
+            </div>
             <input name="image" value={form.image} onChange={handleChange} placeholder="https://..." />
+            {form.image && <img src={form.image} alt="Preview" style={{ width: "100%", height: 120, objectFit: "cover", borderRadius: "var(--radius-sm)", marginTop: 6 }} />}
           </div>
 
           <div className="form-group">
