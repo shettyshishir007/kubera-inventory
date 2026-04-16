@@ -1,4 +1,4 @@
-const CACHE_NAME = "sortly-v1";
+const CACHE_NAME = "kubera-v1";
 const STATIC_ASSETS = [
   "/",
   "/index.html",

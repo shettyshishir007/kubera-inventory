@@ -84,7 +84,7 @@ export default function Scanner({ onScan, onClose }) {
   function handleScannedText(text) {
     try {
       const parsed = JSON.parse(text);
-      setScannedData({ type: "sortly-qr", ...parsed });
+      setScannedData({ type: "kubera-qr", ...parsed });
     } catch {
       setScannedData({ type: "barcode", code: text, name: "" });
     }
@@ -100,7 +100,7 @@ export default function Scanner({ onScan, onClose }) {
   function handleAddItem() {
     if (!scannedData) return;
 
-    if (scannedData.type === "sortly-qr" && scannedData.id) {
+    if (scannedData.type === "kubera-qr" && scannedData.id) {
       onScan({ action: "view", id: scannedData.id });
     } else {
       onScan({
@@ -194,11 +194,11 @@ export default function Scanner({ onScan, onClose }) {
               Scanned Result
             </div>
 
-            {scannedData.type === "sortly-qr" && scannedData.id ? (
+            {scannedData.type === "kubera-qr" && scannedData.id ? (
               <div>
                 <div style={{ fontWeight: 600, fontSize: "1rem" }}>{scannedData.name}</div>
                 <div style={{ fontSize: "0.84rem", color: "var(--text-muted)", marginTop: 4 }}>
-                  Existing Sortly item found
+                  Existing Kubera item found
                 </div>
                 {scannedData.qty !== undefined && (
                   <div style={{ fontSize: "0.84rem", marginTop: 4 }}>Qty: {scannedData.qty} &middot; ${scannedData.price}</div>
@@ -221,7 +221,7 @@ export default function Scanner({ onScan, onClose }) {
             <>
               <button className="btn btn-ghost" onClick={handleRescan}>Scan Again</button>
               <button className="btn btn-primary" onClick={handleAddItem}>
-                {scannedData.type === "sortly-qr" && scannedData.id ? "View Item" : "Add as New Item"}
+                {scannedData.type === "kubera-qr" && scannedData.id ? "View Item" : "Add as New Item"}
               </button>
             </>
           )}

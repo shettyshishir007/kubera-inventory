@@ -56,7 +56,7 @@ export default function InstallPrompt() {
       boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
     }}>
       <div style={{ fontWeight: 600, fontSize: "0.9rem", marginBottom: 6 }}>
-        Install Sortly
+        Install Kubera
       </div>
       <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginBottom: 12, lineHeight: 1.4 }}>
         Add to your home screen for quick access, offline support, and a native app experience.

@@ -1,6 +1,6 @@
 {
-  "name": "Sortly - Inventory Simplified",
-  "short_name": "Sortly",
+  "name": "Kubera - Inventory Tracker",
+  "short_name": "Kubera",
   "description": "Visual inventory management with folders, QR codes, and low stock alerts",
   "start_url": "/",
   "display": "standalone",

@@ -24,7 +24,7 @@ export default function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
-        Sort<span>ly</span>
+        Kub<span>era</span>
       </div>
 
       <nav className="sidebar-nav">

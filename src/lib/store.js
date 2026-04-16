@@ -1,8 +1,8 @@
 import { v4 as uuidv4 } from "uuid";
 
-const FOLDERS_KEY = "sortly_folders";
-const ITEMS_KEY = "sortly_items";
-const LOG_KEY = "sortly_log";
+const FOLDERS_KEY = "kubera_folders";
+const ITEMS_KEY = "kubera_items";
+const LOG_KEY = "kubera_log";
 
 function load(key, fallback) {
   try {

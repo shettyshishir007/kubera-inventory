@@ -53,7 +53,7 @@ export default function Login() {
       }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <h1 style={{ fontSize: "1.8rem", fontWeight: 800, letterSpacing: -0.5 }}>
-            Sort<span style={{ color: "var(--primary)" }}>ly</span>
+            Kub<span style={{ color: "var(--primary)" }}>era</span>
           </h1>
           <p style={{ color: "var(--text-muted)", fontSize: "0.9rem", marginTop: 8 }}>
             {isSignUp ? "Create your account" : "Sign in to your inventory"}
