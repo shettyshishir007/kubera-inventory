@@ -16,6 +16,17 @@ export async function getLogs() {
   return data;
 }
 
+export async function getLogsByItemName(itemName) {
+  const { data, error } = await supabase
+    .from("activity_log")
+    .select("*")
+    .eq("item_name", itemName)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  if (error) throw error;
+  return data;
+}
+
 // ── Folders ──────────────────────────────────────────────
 
 export async function getFolders() {

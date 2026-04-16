@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { getFolders } from "../lib/database";
 import { uploadImage } from "../lib/storage";
+import { useToast } from "./Toast";
 
 const EMPTY = {
   name: "",
@@ -14,6 +15,7 @@ const EMPTY = {
 };
 
 export default function ItemModal({ item, onSave, onClose }) {
+  const toast = useToast();
   const [folders, setFolders] = useState([]);
   const [form, setForm] = useState(EMPTY);
   const [tagInput, setTagInput] = useState("");
@@ -57,7 +59,7 @@ export default function ItemModal({ item, onSave, onClose }) {
       const url = await uploadImage(file);
       setForm((f) => ({ ...f, image: url }));
     } catch (err) {
-      alert("Upload failed: " + err.message);
+      toast.error("Upload failed: " + err.message);
     }
     setUploading(false);
   }

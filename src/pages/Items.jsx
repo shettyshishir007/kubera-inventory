@@ -1,14 +1,18 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { getItems, getFolders, addItem, deleteItem, addFolder } from "../lib/database";
+import { getItems, getFolders, addItem, updateItem, deleteItem, addFolder, moveItem } from "../lib/database";
 import ItemModal from "../components/ItemModal";
 import FolderModal from "../components/FolderModal";
 import Scanner from "../components/Scanner";
 import { exportCSV, parseCSV } from "../lib/csv";
+import { useToast } from "../components/Toast";
+import { SkeletonCard, SkeletonRow } from "../components/Skeleton";
+import DragDropItems from "../components/DragDropItems";
 
 const PLACEHOLDER = "https://images.unsplash.com/photo-1586075010923-2dd4570fb338?w=300&h=200&fit=crop";
 
 export default function Items({ filteredFolderId, folderName }) {
+  const toast = useToast();
   const [items, setItems] = useState([]);
   const [folders, setFolders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -16,8 +20,11 @@ export default function Items({ filteredFolderId, folderName }) {
   const [folderModal, setFolderModal] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const ITEMS_PER_PAGE = 12;
   const [statusFilter, setStatusFilter] = useState("all");
   const [view, setView] = useState("grid");
+  const [selected, setSelected] = useState(new Set());
   const navigate = useNavigate();
 
   const refresh = useCallback(async () => {
@@ -47,12 +54,77 @@ export default function Items({ filteredFolderId, folderName }) {
 
   async function handleSaveItem(data) {
     try {
-      await addItem(data);
+      if (data.id) {
+        await updateItem(data.id, data);
+      } else {
+        await addItem(data);
+      }
       await refresh();
       setItemModal(null);
     } catch (err) {
-      alert("Error saving item: " + err.message);
+      toast.error("Error saving item: " + err.message);
     }
+  }
+
+  function handleEdit(e, item) {
+    e.stopPropagation();
+    setItemModal({ ...item, folderId: item.folder_id, minQuantity: item.min_quantity });
+  }
+
+  function toggleSelect(e, id) {
+    e.stopPropagation();
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selected.size === filtered.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(filtered.map((i) => i.id)));
+    }
+  }
+
+  async function handleBulkDelete() {
+    if (!confirm(`Delete ${selected.size} item(s)?`)) return;
+    try {
+      for (const id of selected) await deleteItem(id);
+      toast.success(`Deleted ${selected.size} item(s)`);
+      setSelected(new Set());
+      await refresh();
+    } catch (err) {
+      toast.error("Bulk delete error: " + err.message);
+    }
+  }
+
+  async function handleBulkMove(folderId) {
+    try {
+      for (const id of selected) await moveItem(id, folderId || null);
+      toast.success(`Moved ${selected.size} item(s)`);
+      setSelected(new Set());
+      await refresh();
+    } catch (err) {
+      toast.error("Bulk move error: " + err.message);
+    }
+  }
+
+  async function handleDragMove(itemId, folderId) {
+    try {
+      await moveItem(itemId, folderId);
+      toast.success("Item moved!");
+      await refresh();
+    } catch (err) {
+      toast.error("Move failed: " + err.message);
+    }
+  }
+
+  function handleBulkExport() {
+    const selectedItems = items.filter((i) => selected.has(i.id));
+    exportCSV(selectedItems, folders);
+    toast.success(`Exported ${selectedItems.length} item(s)`);
   }
 
   async function handleSaveFolder(data) {
@@ -61,7 +133,7 @@ export default function Items({ filteredFolderId, folderName }) {
       await refresh();
       setFolderModal(false);
     } catch (err) {
-      alert("Error creating folder: " + err.message);
+      toast.error("Error creating folder: " + err.message);
     }
   }
 
@@ -72,7 +144,7 @@ export default function Items({ filteredFolderId, folderName }) {
         await deleteItem(id);
         await refresh();
       } catch (err) {
-        alert("Error deleting item: " + err.message);
+        toast.error("Error deleting item: " + err.message);
       }
     }
   }
@@ -91,16 +163,16 @@ export default function Items({ filteredFolderId, folderName }) {
       const text = await file.text();
       try {
         const parsed = parseCSV(text, folders);
-        if (parsed.length === 0) { alert("No valid items found in CSV."); return; }
+        if (parsed.length === 0) { toast.error("No valid items found in CSV."); return; }
         let added = 0;
         for (const item of parsed) {
           await addItem(item);
           added++;
         }
         await refresh();
-        alert(`Imported ${added} item${added !== 1 ? "s" : ""} successfully!`);
+        toast.success(`Imported ${added} item${added !== 1 ? "s" : ""} successfully!`);
       } catch (err) {
-        alert("Import error: " + err.message);
+        toast.error("Import error: " + err.message);
       }
     };
     input.click();
@@ -110,9 +182,16 @@ export default function Items({ filteredFolderId, folderName }) {
     return folders.find((f) => f.id === folderId)?.name || "Unfiled";
   }
 
-  if (loading) return <div style={{ padding: 40, color: "var(--text-muted)" }}>Loading items...</div>;
+  if (loading) return (
+    <div>
+      <div className="page-header"><div><div className="skeleton-line shimmer" style={{ width: 120, height: 22 }} /></div></div>
+      <div className="items-grid">{[...Array(6)].map((_, i) => <SkeletonCard key={i} />)}</div>
+    </div>
+  );
 
   const title = folderName || "All Items";
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+  const paginated = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
   return (
     <div>
@@ -153,15 +232,34 @@ export default function Items({ filteredFolderId, folderName }) {
         </div>
       </div>
 
+      {selected.size > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "var(--primary-bg)", borderRadius: "var(--radius-sm)", marginBottom: 16 }}>
+          <span style={{ fontSize: "0.85rem", fontWeight: 600 }}>{selected.size} selected</span>
+          <button className="btn btn-ghost btn-sm" onClick={toggleSelectAll}>{selected.size === filtered.length ? "Deselect All" : "Select All"}</button>
+          <button className="btn btn-ghost btn-sm" onClick={handleBulkExport}>Export</button>
+          <select className="btn btn-ghost btn-sm" defaultValue="" onChange={(e) => { if (e.target.value) handleBulkMove(e.target.value === "__unfiled__" ? null : e.target.value); e.target.value = ""; }} style={{ fontSize: "0.78rem" }}>
+            <option value="" disabled>Move to...</option>
+            <option value="__unfiled__">Unfiled</option>
+            {folders.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+          </select>
+          <button className="btn btn-danger btn-sm" onClick={handleBulkDelete}>Delete</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => setSelected(new Set())} style={{ marginLeft: "auto" }}>Cancel</button>
+        </div>
+      )}
+
       {filtered.length === 0 ? (
         <div className="empty-state">
           <h3>No items found</h3>
           <p>Adjust your filters or add a new item.</p>
         </div>
       ) : view === "grid" ? (
-        <div className="items-grid">
-          {filtered.map((item) => (
-            <div className="item-card" key={item.id} onClick={() => navigate(`/item/${item.id}`)}>
+        <DragDropItems
+          items={paginated}
+          folders={folders}
+          onMove={handleDragMove}
+          renderItem={(item) => (
+            <div className="item-card" onClick={() => navigate(`/item/${item.id}`)} style={{ position: "relative" }}>
+              <input type="checkbox" checked={selected.has(item.id)} onChange={(e) => toggleSelect(e, item.id)} onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: 10, left: 10, zIndex: 2, width: 16, height: 16, cursor: "pointer", accentColor: "var(--primary)" }} />
               <img className="item-card-img" src={item.image || PLACEHOLDER} alt={item.name} onError={(e) => { e.target.src = PLACEHOLDER; }} />
               <div className="item-card-body">
                 <div className="item-card-top">
@@ -183,21 +281,25 @@ export default function Items({ filteredFolderId, folderName }) {
                 )}
                 <div className="item-card-footer">
                   <div className="item-price">${item.price} <span>/ unit</span></div>
-                  <button className="btn btn-danger btn-sm" onClick={(e) => handleDelete(e, item.id)}>Delete</button>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    <button className="btn btn-ghost btn-sm" onClick={(e) => handleEdit(e, item)}>Edit</button>
+                    <button className="btn btn-danger btn-sm" onClick={(e) => handleDelete(e, item.id)}>Delete</button>
+                  </div>
                 </div>
               </div>
             </div>
-          ))}
-        </div>
+          )}
+        />
       ) : (
         <div className="table-container">
           <table>
             <thead>
-              <tr><th></th><th>Name</th><th>Folder</th><th>Qty</th><th>Price</th><th>Status</th><th>Tags</th><th></th></tr>
+              <tr><th style={{ width: 30 }}></th><th></th><th>Name</th><th>Folder</th><th>Qty</th><th>Price</th><th>Status</th><th>Tags</th><th></th></tr>
             </thead>
             <tbody>
-              {filtered.map((item) => (
+              {paginated.map((item) => (
                 <tr key={item.id} onClick={() => navigate(`/item/${item.id}`)} style={{ cursor: "pointer" }}>
+                  <td><input type="checkbox" checked={selected.has(item.id)} onChange={(e) => toggleSelect(e, item.id)} onClick={(e) => e.stopPropagation()} style={{ cursor: "pointer", accentColor: "var(--primary)" }} /></td>
                   <td><img className="table-thumb" src={item.image || PLACEHOLDER} alt="" onError={(e) => { e.target.src = PLACEHOLDER; }} /></td>
                   <td style={{ fontWeight: 600 }}>{item.name}</td>
                   <td style={{ color: "var(--text-muted)" }}>{getFolderNameById(item.folder_id)}</td>
@@ -205,11 +307,27 @@ export default function Items({ filteredFolderId, folderName }) {
                   <td>${item.price}</td>
                   <td><span className={`status ${item.status}`}>{item.status.replace("-", " ")}</span></td>
                   <td><div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>{(item.tags || []).slice(0, 2).map((t) => <span className="tag" key={t}>{t}</span>)}</div></td>
-                  <td><button className="btn btn-danger btn-sm" onClick={(e) => handleDelete(e, item.id)}>Delete</button></td>
+                  <td><div style={{ display: "flex", gap: 4 }}><button className="btn btn-ghost btn-sm" onClick={(e) => handleEdit(e, item)}>Edit</button><button className="btn btn-danger btn-sm" onClick={(e) => handleDelete(e, item.id)}>Delete</button></div></td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, marginTop: 24 }}>
+          <button className="btn btn-ghost btn-sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>&larr; Prev</button>
+          {[...Array(totalPages)].map((_, i) => (
+            <button
+              key={i}
+              className={`btn btn-sm ${page === i + 1 ? "btn-primary" : "btn-ghost"}`}
+              onClick={() => setPage(i + 1)}
+            >
+              {i + 1}
+            </button>
+          ))}
+          <button className="btn btn-ghost btn-sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next &rarr;</button>
         </div>
       )}
 

@@ -1,23 +1,50 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { getItems, getFolders } from "../lib/database";
 import {
-  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 
 const COLORS = ["#6366f1", "#22c55e", "#ef4444", "#eab308", "#f97316", "#a855f7", "#06b6d4", "#ec4899"];
 
 export default function Reports() {
-  const [items, setItems] = useState([]);
+  const [allItems, setAllItems] = useState([]);
   const [folders, setFolders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [folderFilter, setFolderFilter] = useState("all");
+  const [dateRange, setDateRange] = useState("all");
 
   useEffect(() => {
     Promise.all([getItems(), getFolders()]).then(([i, f]) => {
-      setItems(i);
+      setAllItems(i);
       setFolders(f);
       setLoading(false);
     });
   }, []);
+
+  const items = useMemo(() => {
+    let filtered = allItems;
+
+    // Folder filter
+    if (folderFilter === "unfiled") {
+      filtered = filtered.filter((i) => !i.folder_id);
+    } else if (folderFilter !== "all") {
+      filtered = filtered.filter((i) => i.folder_id === folderFilter);
+    }
+
+    // Date range filter
+    if (dateRange !== "all") {
+      const now = new Date();
+      let cutoff;
+      if (dateRange === "7d") cutoff = new Date(now - 7 * 86400000);
+      else if (dateRange === "30d") cutoff = new Date(now - 30 * 86400000);
+      else if (dateRange === "90d") cutoff = new Date(now - 90 * 86400000);
+      if (cutoff) {
+        filtered = filtered.filter((i) => new Date(i.created_at) >= cutoff);
+      }
+    }
+
+    return filtered;
+  }, [allItems, folderFilter, dateRange]);
 
   if (loading) return <div style={{ padding: 40, color: "var(--text-muted)" }}>Loading reports...</div>;
 
@@ -67,8 +94,23 @@ export default function Reports() {
       <div className="page-header">
         <div>
           <h1>Reports</h1>
-          <p>Inventory analytics and insights</p>
+          <p>Inventory analytics and insights ({items.length} item{items.length !== 1 ? "s" : ""})</p>
         </div>
+      </div>
+
+      {/* Filters */}
+      <div className="toolbar" style={{ marginBottom: 24 }}>
+        <select value={folderFilter} onChange={(e) => setFolderFilter(e.target.value)}>
+          <option value="all">All Folders</option>
+          <option value="unfiled">Unfiled</option>
+          {folders.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+        </select>
+        <select value={dateRange} onChange={(e) => setDateRange(e.target.value)}>
+          <option value="all">All Time</option>
+          <option value="7d">Last 7 Days</option>
+          <option value="30d">Last 30 Days</option>
+          <option value="90d">Last 90 Days</option>
+        </select>
       </div>
 
       <div className="stats-grid" style={{ marginBottom: 28 }}>

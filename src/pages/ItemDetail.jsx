@@ -1,18 +1,22 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
-import { getItem, updateItem, deleteItem, getFolders, moveItem } from "../lib/database";
+import { getItem, updateItem, deleteItem, getFolders, moveItem, getLogsByItemName } from "../lib/database";
 import ItemModal from "../components/ItemModal";
+import { useToast } from "../components/Toast";
+import { SkeletonDetail } from "../components/Skeleton";
 
 const PLACEHOLDER = "https://images.unsplash.com/photo-1586075010923-2dd4570fb338?w=300&h=200&fit=crop";
 
 export default function ItemDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
   const [item, setItem] = useState(null);
   const [folders, setFolders] = useState([]);
   const [editModal, setEditModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [history, setHistory] = useState([]);
 
   useEffect(() => {
     async function load() {
@@ -20,6 +24,9 @@ export default function ItemDetail() {
         const [i, f] = await Promise.all([getItem(id), getFolders()]);
         setItem(i);
         setFolders(f);
+        if (i) {
+          getLogsByItemName(i.name).then(setHistory).catch(() => {});
+        }
       } catch (err) {
         console.error("Failed to load item:", err);
       } finally {
@@ -29,7 +36,7 @@ export default function ItemDetail() {
     load();
   }, [id]);
 
-  if (loading) return <div style={{ padding: 40, color: "var(--text-muted)" }}>Loading...</div>;
+  if (loading) return <SkeletonDetail />;
 
   if (!item) {
     return (
@@ -49,7 +56,7 @@ export default function ItemDetail() {
       setItem(await getItem(item.id));
       setEditModal(false);
     } catch (err) {
-      alert("Error saving: " + err.message);
+      toast.error("Error saving: " + err.message);
     }
   }
 
@@ -59,7 +66,7 @@ export default function ItemDetail() {
         await deleteItem(item.id);
         navigate("/items");
       } catch (err) {
-        alert("Error deleting: " + err.message);
+        toast.error("Error deleting: " + err.message);
       }
     }
   }
@@ -70,7 +77,7 @@ export default function ItemDetail() {
       await moveItem(item.id, folderId);
       setItem(await getItem(item.id));
     } catch (err) {
-      alert("Error moving: " + err.message);
+      toast.error("Error moving: " + err.message);
     }
   }
 
@@ -80,7 +87,7 @@ export default function ItemDetail() {
       await updateItem(item.id, { quantity: newQty });
       setItem(await getItem(item.id));
     } catch (err) {
-      alert("Error updating quantity: " + err.message);
+      toast.error("Error updating quantity: " + err.message);
     }
   }
 
@@ -146,10 +153,32 @@ export default function ItemDetail() {
         </div>
       )}
 
-      <div className="qr-section">
-        <h3>QR Code</h3>
-        <QRCodeSVG value={qrData} size={160} bgColor="transparent" fgColor="#f1f5f9" />
-        <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 8 }}>Scan to view item details</p>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginTop: 20 }}>
+        <div className="qr-section">
+          <h3>QR Code</h3>
+          <QRCodeSVG value={qrData} size={160} bgColor="transparent" fgColor="#f1f5f9" />
+          <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 8 }}>Scan to view item details</p>
+        </div>
+
+        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 20 }}>
+          <h3 style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginBottom: 12 }}>Item History</h3>
+          {history.length === 0 ? (
+            <p style={{ fontSize: "0.84rem", color: "var(--text-muted)" }}>No history yet</p>
+          ) : (
+            <div className="log-list">
+              {history.map((log) => (
+                <div className="log-entry" key={log.id} style={{ padding: "8px 10px" }}>
+                  <span className={`log-dot ${log.action}`} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: "0.8rem" }}><strong>{log.action.replace("_", " ")}</strong></div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{log.details}</div>
+                  </div>
+                  <span className="log-time">{new Date(log.created_at).toLocaleDateString()}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {editModal && <ItemModal item={{ ...item, folderId: item.folder_id, minQuantity: item.min_quantity }} onSave={handleSave} onClose={() => setEditModal(false)} />}

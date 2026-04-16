@@ -11,6 +11,7 @@ import Reports from "./pages/Reports";
 import FolderView from "./pages/FolderView";
 import Login from "./pages/Login";
 import InstallPrompt from "./components/InstallPrompt";
+import { ToastProvider } from "./components/Toast";
 
 function ProtectedLayout() {
   const { user, loading } = useAuth();
@@ -74,11 +75,13 @@ function AppRoutes() {
 function App() {
   return (
     <ThemeProvider>
-      <BrowserRouter>
-        <AuthProvider>
-          <AppRoutes />
-        </AuthProvider>
-      </BrowserRouter>
+      <ToastProvider>
+        <BrowserRouter>
+          <AuthProvider>
+            <AppRoutes />
+          </AuthProvider>
+        </BrowserRouter>
+      </ToastProvider>
     </ThemeProvider>
   );
 }
