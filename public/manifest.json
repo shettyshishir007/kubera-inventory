@@ -1,0 +1,43 @@
+{
+  "name": "Sortly - Inventory Simplified",
+  "short_name": "Sortly",
+  "description": "Visual inventory management with folders, QR codes, and low stock alerts",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#6366f1",
+  "orientation": "any",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "All Items",
+      "url": "/items",
+      "description": "View all inventory items"
+    },
+    {
+      "name": "Scan Item",
+      "url": "/items?scan=true",
+      "description": "Scan a barcode or QR code"
+    }
+  ]
+}
