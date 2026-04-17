@@ -2,6 +2,8 @@ import { useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./lib/auth";
 import { ThemeProvider } from "./lib/theme";
+import { DataProvider } from "./lib/dataContext";
+import { SearchProvider } from "./lib/search";
 import Sidebar from "./components/Sidebar";
 import Dashboard from "./pages/Dashboard";
 import Items from "./pages/Items";
@@ -9,9 +11,12 @@ import ItemDetail from "./pages/ItemDetail";
 import Activity from "./pages/Activity";
 import Reports from "./pages/Reports";
 import FolderView from "./pages/FolderView";
+import Profile from "./pages/Profile";
 import Login from "./pages/Login";
 import InstallPrompt from "./components/InstallPrompt";
+import GlobalSearchBar from "./components/GlobalSearchBar";
 import { ToastProvider } from "./components/Toast";
+import { ConfirmProvider } from "./components/ConfirmDialog";
 
 function ProtectedLayout() {
   const { user, loading } = useAuth();
@@ -36,27 +41,33 @@ function ProtectedLayout() {
   if (!user) return <Navigate to="/login" replace />;
 
   return (
-    <div className="app">
-      {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
-      <Sidebar className={sidebarOpen ? "open" : ""} onNavigate={() => setSidebarOpen(false)} />
-      <main className="main">
-        <div className="mobile-header">
-          <button className="hamburger" onClick={() => setSidebarOpen(true)}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-          </button>
-          <h2>Kub<span style={{ color: "var(--primary)" }}>era</span></h2>
+    <DataProvider>
+      <SearchProvider>
+        <div className="app">
+          {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
+          <Sidebar className={sidebarOpen ? "open" : ""} onNavigate={() => setSidebarOpen(false)} />
+          <main className="main">
+            <div className="mobile-header">
+              <button className="hamburger" onClick={() => setSidebarOpen(true)}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+              </button>
+              <h2>Kub<span style={{ color: "var(--primary)" }}>era</span></h2>
+            </div>
+            <GlobalSearchBar />
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/items" element={<Items />} />
+              <Route path="/item/:id" element={<ItemDetail />} />
+              <Route path="/folder/:folderId" element={<FolderView />} />
+              <Route path="/activity" element={<Activity />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/profile" element={<Profile />} />
+            </Routes>
+          </main>
+          <InstallPrompt />
         </div>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/items" element={<Items />} />
-          <Route path="/item/:id" element={<ItemDetail />} />
-          <Route path="/folder/:folderId" element={<FolderView />} />
-          <Route path="/activity" element={<Activity />} />
-          <Route path="/reports" element={<Reports />} />
-        </Routes>
-      </main>
-      <InstallPrompt />
-    </div>
+      </SearchProvider>
+    </DataProvider>
   );
 }
 
@@ -76,11 +87,13 @@ function App() {
   return (
     <ThemeProvider>
       <ToastProvider>
-        <BrowserRouter>
-          <AuthProvider>
-            <AppRoutes />
-          </AuthProvider>
-        </BrowserRouter>
+        <ConfirmProvider>
+          <BrowserRouter>
+            <AuthProvider>
+              <AppRoutes />
+            </AuthProvider>
+          </BrowserRouter>
+        </ConfirmProvider>
       </ToastProvider>
     </ThemeProvider>
   );

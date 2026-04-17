@@ -446,6 +446,14 @@ tr:hover td { background: var(--bg-card-hover); }
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* ── Global Search ───────────────────── */
+.global-search-wrap input:focus { border-color: var(--primary); }
+
+/* Hide global search on very small screens to save space */
+@media (max-width: 480px) {
+  .global-search-wrap kbd { display: none; }
+}
+
 /* ── Mobile Responsive ──────────────── */
 @media (max-width: 768px) {
   .sidebar {

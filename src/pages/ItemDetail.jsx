@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
-import { getItem, updateItem, deleteItem, getFolders, moveItem, getLogsByItemName } from "../lib/database";
+import { getItem, updateItem, deleteItem, getFolders, moveItem, getLogsByItemName, duplicateItem } from "../lib/database";
 import ItemModal from "../components/ItemModal";
 import { useToast } from "../components/Toast";
+import { useConfirm } from "../components/ConfirmDialog";
 import { SkeletonDetail } from "../components/Skeleton";
 
 const PLACEHOLDER = "https://images.unsplash.com/photo-1586075010923-2dd4570fb338?w=300&h=200&fit=crop";
@@ -12,6 +13,7 @@ export default function ItemDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
+  const confirm = useConfirm();
   const [item, setItem] = useState(null);
   const [folders, setFolders] = useState([]);
   const [editModal, setEditModal] = useState(false);
@@ -61,13 +63,28 @@ export default function ItemDetail() {
   }
 
   async function handleDelete() {
-    if (confirm("Delete this item permanently?")) {
-      try {
-        await deleteItem(item.id);
-        navigate("/items");
-      } catch (err) {
-        toast.error("Error deleting: " + err.message);
-      }
+    const ok = await confirm({
+      title: "Delete this item?",
+      message: `"${item.name}" will be permanently removed. This cannot be undone.`,
+      confirmText: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteItem(item.id);
+      navigate("/items");
+    } catch (err) {
+      toast.error("Error deleting: " + err.message);
+    }
+  }
+
+  async function handleDuplicate() {
+    try {
+      const newItem = await duplicateItem(item.id);
+      toast.success("Item duplicated");
+      navigate(`/item/${newItem.id}`);
+    } catch (err) {
+      toast.error("Error duplicating: " + err.message);
     }
   }
 
@@ -137,6 +154,7 @@ export default function ItemDetail() {
 
           <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
             <button className="btn btn-primary" onClick={() => setEditModal(true)}>Edit Item</button>
+            <button className="btn btn-ghost" onClick={handleDuplicate}>Duplicate</button>
             <button className="btn btn-danger" onClick={handleDelete}>Delete</button>
             <select className="btn btn-ghost" value={item.folder_id || ""} onChange={handleMove} style={{ fontSize: "0.84rem" }}>
               <option value="">Move to Unfiled</option>

@@ -144,6 +144,28 @@ export async function deleteItem(id) {
   if (item) await addLog("item_deleted", item.name, "Item removed");
 }
 
+export async function duplicateItem(id) {
+  const original = await getItem(id);
+  if (!original) throw new Error("Item not found");
+  const { data, error } = await supabase
+    .from("items")
+    .insert({
+      name: `${original.name} (Copy)`,
+      folder_id: original.folder_id,
+      quantity: original.quantity,
+      min_quantity: original.min_quantity,
+      price: original.price,
+      tags: original.tags || [],
+      notes: original.notes || "",
+      image: original.image || "",
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  await addLog("item_added", data.name, `Duplicated from "${original.name}"`);
+  return data;
+}
+
 export async function moveItem(id, folderId) {
   const folder = folderId
     ? (await supabase.from("folders").select("name").eq("id", folderId).single()).data

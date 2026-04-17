@@ -1,27 +1,65 @@
 import { NavLink } from "react-router-dom";
-import { useState, useEffect } from "react";
-import { getFolders, getItems } from "../lib/database";
+import { useState } from "react";
+import { updateFolder, deleteFolder } from "../lib/database";
 import { useAuth } from "../lib/auth";
 import { useTheme } from "../lib/theme";
+import { useData } from "../lib/dataContext";
+import { useConfirm } from "./ConfirmDialog";
+import { useToast } from "./Toast";
+import FolderModal from "./FolderModal";
 
 export default function Sidebar({ className = "", onNavigate }) {
   const { user, signOut } = useAuth();
   const { theme, toggle: toggleTheme } = useTheme();
-  const [folders, setFolders] = useState([]);
-  const [items, setItems] = useState([]);
-
-  useEffect(() => {
-    Promise.all([getFolders(), getItems()]).then(([f, i]) => {
-      setFolders(f);
-      setItems(i);
-    });
-  }, []);
+  const { folders, items, refresh } = useData();
+  const confirm = useConfirm();
+  const toast = useToast();
+  const [editingFolder, setEditingFolder] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(null);
 
   function itemsInFolder(folderId) {
     return items.filter((i) => i.folder_id === folderId).length;
   }
 
   const unfiledCount = items.filter((i) => !i.folder_id).length;
+
+  async function handleDeleteFolder(e, folder) {
+    e.preventDefault();
+    e.stopPropagation();
+    setMenuOpen(null);
+    const ok = await confirm({
+      title: `Delete "${folder.name}"?`,
+      message: "Items in this folder will be moved to Unfiled. This cannot be undone.",
+      confirmText: "Delete Folder",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteFolder(folder.id);
+      await refresh();
+      toast.success("Folder deleted");
+    } catch (err) {
+      toast.error("Error: " + err.message);
+    }
+  }
+
+  function handleEditFolder(e, folder) {
+    e.preventDefault();
+    e.stopPropagation();
+    setMenuOpen(null);
+    setEditingFolder(folder);
+  }
+
+  async function handleSaveFolder(data) {
+    try {
+      await updateFolder(data.id, { name: data.name, color: data.color });
+      await refresh();
+      setEditingFolder(null);
+      toast.success("Folder updated");
+    } catch (err) {
+      toast.error("Error: " + err.message);
+    }
+  }
 
   return (
     <aside className={`sidebar ${className}`} onClick={(e) => { if (e.target.closest("a")) onNavigate?.(); }}>
@@ -52,15 +90,65 @@ export default function Sidebar({ className = "", onNavigate }) {
       <div className="sidebar-section">Folders</div>
       <nav className="sidebar-nav">
         {folders.map((f) => (
-          <NavLink
-            key={f.id}
-            to={`/folder/${f.id}`}
-            className={({ isActive }) => `sidebar-link ${isActive ? "active" : ""}`}
-          >
-            <span className="folder-dot" style={{ background: f.color }} />
-            {f.name}
-            <span className="folder-count">{itemsInFolder(f.id)}</span>
-          </NavLink>
+          <div key={f.id} style={{ position: "relative" }}>
+            <NavLink
+              to={`/folder/${f.id}`}
+              className={({ isActive }) => `sidebar-link ${isActive ? "active" : ""}`}
+              style={{ paddingRight: 32 }}
+            >
+              <span className="folder-dot" style={{ background: f.color }} />
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>{f.name}</span>
+              <span className="folder-count">{itemsInFolder(f.id)}</span>
+            </NavLink>
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setMenuOpen(menuOpen === f.id ? null : f.id); }}
+              style={{
+                position: "absolute",
+                right: 4,
+                top: "50%",
+                transform: "translateY(-50%)",
+                background: "transparent",
+                border: "none",
+                color: "var(--text-muted)",
+                cursor: "pointer",
+                padding: "4px 6px",
+                borderRadius: 4,
+                opacity: 0.7,
+              }}
+              title="Folder options"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
+            </button>
+            {menuOpen === f.id && (
+              <div
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  top: "calc(100% + 2px)",
+                  background: "var(--bg-card)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--radius-sm)",
+                  boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
+                  zIndex: 30,
+                  minWidth: 140,
+                  overflow: "hidden",
+                }}
+              >
+                <button
+                  onClick={(e) => handleEditFolder(e, f)}
+                  style={{ display: "block", width: "100%", padding: "8px 12px", textAlign: "left", background: "transparent", border: "none", color: "var(--text)", fontSize: "0.82rem", cursor: "pointer", fontFamily: "inherit" }}
+                >
+                  Rename / Edit
+                </button>
+                <button
+                  onClick={(e) => handleDeleteFolder(e, f)}
+                  style={{ display: "block", width: "100%", padding: "8px 12px", textAlign: "left", background: "transparent", border: "none", color: "var(--red)", fontSize: "0.82rem", cursor: "pointer", fontFamily: "inherit" }}
+                >
+                  Delete
+                </button>
+              </div>
+            )}
+          </div>
         ))}
         {unfiledCount > 0 && (
           <NavLink to="/folder/unfiled" className={({ isActive }) => `sidebar-link ${isActive ? "active" : ""}`}>
@@ -72,6 +160,10 @@ export default function Sidebar({ className = "", onNavigate }) {
       </nav>
 
       <div style={{ marginTop: "auto", borderTop: "1px solid var(--border)", paddingTop: 16 }}>
+        <NavLink to="/profile" className={({ isActive }) => `sidebar-link ${isActive ? "active" : ""}`} style={{ marginBottom: 4 }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Profile
+        </NavLink>
         <button
           onClick={toggleTheme}
           className="sidebar-link"
@@ -96,6 +188,10 @@ export default function Sidebar({ className = "", onNavigate }) {
           Sign Out
         </button>
       </div>
+
+      {editingFolder && (
+        <FolderModal folder={editingFolder} onSave={handleSaveFolder} onClose={() => setEditingFolder(null)} />
+      )}
     </aside>
   );
 }

@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { getFolders } from "../lib/database";
+import { useData } from "../lib/dataContext";
 import Items from "./Items";
 
 export default function FolderView() {
   const { folderId } = useParams();
+  const { folders } = useData();
   const [name, setName] = useState(folderId === "unfiled" ? "Unfiled Items" : "Loading...");
 
   useEffect(() => {
@@ -12,11 +13,10 @@ export default function FolderView() {
       setName("Unfiled Items");
       return;
     }
-    getFolders().then((folders) => {
-      const folder = folders.find((f) => f.id === folderId);
-      setName(folder?.name || "Unknown Folder");
-    });
-  }, [folderId]);
+    const folder = folders.find((f) => f.id === folderId);
+    if (folder) setName(folder.name);
+    else setName("Unknown Folder");
+  }, [folderId, folders]);
 
   return <Items filteredFolderId={folderId} folderName={name} />;
 }
